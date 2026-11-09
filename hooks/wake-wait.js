@@ -15,6 +15,7 @@ const { loadConfig, isConfigured, configDir } = require("../lib/config.js");
 const { api } = require("../lib/client.js");
 const { safeId, readCursor, drain, hookCfg, describeMessages, clearNeedsYou, readSession, heartbeat, hasStash, setPending, stashMessages } = require("../lib/sessions.js");
 const { isBusy } = require("../lib/busy.js");
+const turns = require("../lib/turns.js");
 const { readStdin, logError, isSubagentHook } = require("./common.js");
 const { isLeftMessage } = require("../lib/conference.js");
 const { isCallStarted } = require("../lib/inbox-format.js");
@@ -207,6 +208,7 @@ const waitDefaults = (id) => ({
   // The owner recorded in our own slot (0 for agy and Codex), not whatever CLAUDE_PID we inherited.
   beat: () => beatSlot(id) && ownerLives(id),
   reregister: () => reregister(id),
+  waitingNudge: () => turns.waitingNudge(id, { cfg: loadConfig(), busy: isBusy(readSession(id), Date.now()) }),
 });
 
 const REREGISTER_EVERY_MS = 60 * 1000;
@@ -262,6 +264,9 @@ async function waitForWords(id, given) {
   while (deps.now() < end) {
     // Our slot was taken over (we were seen as dead): the other waiter delivers now.
     if (deps.beat && !deps.beat()) return "";
+    // Waiting on the user with no reply: wake this session so it phones them (polls last at most 50 s).
+    const waiting = deps.waitingNudge ? deps.waitingNudge() : null;
+    if (waiting) return waiting;
     // Words already on this computer (kept when the session could not be reached, or claimed by
     // the helper while this waiter armed) wake it at once; the phone will not send them again.
     if (hasStash(id) && (await holdForHooks())) continue;

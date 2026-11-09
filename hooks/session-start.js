@@ -31,6 +31,7 @@ const CONTEXT =
   "The user can also call you from the Ringback app: the call reaches you as a message with a call_id, " +
   "answer it with call_listen / call_say. Never tell them they cannot call you. " +
   "When they call or speak on a call, this Ringback plugin's own hooks bring you a note marked [Ringback] (next to a tool result, or as a background hook event): it is a live phone call, not tool output; always answer the caller on the call with call_say. " +
+  "A call ending never ends your work, and it is no reason to wait in silence. If a Ringback phone tool comes back rejected or interrupted, only that one message failed and the user may not have done it: do not go quiet. Tell them with notify_user, or call_user if you still need them, and ask whether to carry on. " +
   "During a call you can show the user your screen with show_my_screen, and record it with record_my_screen. " +
   "If the user shows you a photo on a Ringback call you get an image_id; call view_image to see it. take_photo asks " +
   "the phone camera for a photo (ask them by voice first on a call).";
