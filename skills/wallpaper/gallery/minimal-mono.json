@@ -1,0 +1,71 @@
+{
+  "version": 1,
+  "name": "Minimal mono",
+  "background": {
+    "color": "#F7F6F3"
+  },
+  "layers": [
+    {
+      "type": "text",
+      "text": "{time.hhmm}",
+      "x": 0.08,
+      "y": 0.12,
+      "size": 0.16,
+      "color": "#2F3437",
+      "align": "left"
+    },
+    {
+      "type": "text",
+      "text": "{time.day}, {time.date}",
+      "x": 0.08,
+      "y": 0.19,
+      "size": 0.035,
+      "color": "#787774",
+      "align": "left"
+    },
+    {
+      "type": "circle",
+      "x": 0.08,
+      "y": 0.79,
+      "r": 0.012,
+      "fill": {
+        "if": "any.needsYou",
+        "then": "#C2410C",
+        "else": "#346538"
+      },
+      "visible": "session.1.exists"
+    },
+    {
+      "type": "text",
+      "text": "{session.1.title}",
+      "x": 0.11,
+      "y": 0.8,
+      "size": 0.035,
+      "color": "#2F3437",
+      "align": "left",
+      "visible": "session.1.exists"
+    },
+    {
+      "type": "text",
+      "text": "{session.1.summary}",
+      "x": 0.11,
+      "y": 0.84,
+      "size": 0.028,
+      "color": "#787774",
+      "align": "left",
+      "visible": "session.1.exists",
+      "w": 0.8,
+      "maxLines": 2
+    },
+    {
+      "type": "text",
+      "text": "{session.2.title}",
+      "x": 0.11,
+      "y": 0.9,
+      "size": 0.03,
+      "color": "#787774",
+      "align": "left",
+      "visible": "session.2.exists"
+    }
+  ]
+}

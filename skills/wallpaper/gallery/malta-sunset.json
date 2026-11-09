@@ -1,0 +1,81 @@
+{
+  "version": 1,
+  "name": "Malta sunset",
+  "background": {
+    "gradient": [
+      "#2B1B3D",
+      "#B8475F",
+      "#F2A65A",
+      "#FCE3B0"
+    ]
+  },
+  "layers": [
+    {
+      "type": "circle",
+      "x": 0.5,
+      "y": 0.62,
+      "r": 0.16,
+      "fill": "#FFD58AE6"
+    },
+    {
+      "type": "rect",
+      "x": 0,
+      "y": 0.66,
+      "w": 1,
+      "h": 0.34,
+      "fill": "#1D2B4ACC"
+    },
+    {
+      "type": "text",
+      "text": "{time.hhmm}",
+      "x": 0.5,
+      "y": 0.14,
+      "size": 0.2,
+      "color": "#FFF6E8",
+      "align": "center",
+      "font": "sans",
+      "weight": "bold"
+    },
+    {
+      "type": "text",
+      "text": "{time.day}, {time.date}",
+      "x": 0.5,
+      "y": 0.23,
+      "size": 0.04,
+      "color": "#FCE3B0",
+      "align": "center"
+    },
+    {
+      "type": "text",
+      "text": "{sessions.working} working, {sessions.waiting} waiting",
+      "x": 0.5,
+      "y": 0.76,
+      "size": 0.035,
+      "color": "#E9D3B0",
+      "align": "center"
+    },
+    {
+      "type": "text",
+      "text": "{session.1.title}",
+      "x": 0.5,
+      "y": 0.81,
+      "size": 0.045,
+      "color": "#FFF6E8",
+      "align": "center",
+      "visible": "session.1.exists",
+      "weight": "bold"
+    },
+    {
+      "type": "text",
+      "text": "{session.1.summary}",
+      "x": 0.5,
+      "y": 0.855,
+      "size": 0.032,
+      "color": "#E9D3B0",
+      "align": "center",
+      "visible": "session.1.exists",
+      "maxLines": 2,
+      "w": 0.84
+    }
+  ]
+}

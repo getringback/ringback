@@ -1,0 +1,97 @@
+{
+  "version": 1,
+  "name": "Neon rain",
+  "background": {
+    "gradient": [
+      "#05030A",
+      "#160B2E"
+    ]
+  },
+  "layers": [
+    {
+      "type": "particles",
+      "kind": "rain",
+      "density": 0.4,
+      "color": "#5CE1FF88"
+    },
+    {
+      "type": "text",
+      "text": "{time.hhmm}",
+      "x": 0.5,
+      "y": 0.15,
+      "size": 0.21,
+      "color": "#FF4FD8",
+      "align": "center",
+      "font": "mono",
+      "weight": "bold"
+    },
+    {
+      "type": "text",
+      "text": "{time.date}",
+      "x": 0.5,
+      "y": 0.23,
+      "size": 0.035,
+      "color": "#5CE1FF",
+      "align": "center",
+      "font": "mono"
+    },
+    {
+      "type": "rect",
+      "x": 0.1,
+      "y": 0.73,
+      "w": 0.8,
+      "h": 0.002,
+      "fill": "#FF4FD8"
+    },
+    {
+      "type": "text",
+      "text": "ON CALL",
+      "x": 0.5,
+      "y": 0.68,
+      "size": 0.04,
+      "color": "#5CE1FF",
+      "align": "center",
+      "font": "mono",
+      "visible": "call.active",
+      "anim": {
+        "prop": "opacity",
+        "from": 0.4,
+        "to": 1,
+        "ms": 900,
+        "loop": "pingpong"
+      }
+    },
+    {
+      "type": "text",
+      "text": "{sessions.working} working, {sessions.waiting} waiting",
+      "x": 0.5,
+      "y": 0.76,
+      "size": 0.035,
+      "color": "#8C7BB8",
+      "align": "center"
+    },
+    {
+      "type": "text",
+      "text": "{session.1.title}",
+      "x": 0.5,
+      "y": 0.81,
+      "size": 0.045,
+      "color": "#F0E6FF",
+      "align": "center",
+      "visible": "session.1.exists",
+      "weight": "bold"
+    },
+    {
+      "type": "text",
+      "text": "{session.1.summary}",
+      "x": 0.5,
+      "y": 0.855,
+      "size": 0.032,
+      "color": "#8C7BB8",
+      "align": "center",
+      "visible": "session.1.exists",
+      "maxLines": 2,
+      "w": 0.84
+    }
+  ]
+}

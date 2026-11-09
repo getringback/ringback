@@ -1,0 +1,85 @@
+{
+  "version": 1,
+  "name": "Deep focus",
+  "background": {
+    "gradient": [
+      "#0E0F12",
+      "#1A1C22"
+    ]
+  },
+  "layers": [
+    {
+      "type": "arc",
+      "x": 0.5,
+      "y": 0.45,
+      "r": 0.22,
+      "width": 0.012,
+      "color": "#E6E8EE",
+      "track": "#2A2D36",
+      "value": "card.focus.progress",
+      "visible": "card.focus.exists"
+    },
+    {
+      "type": "text",
+      "text": "{card.focus.progress}",
+      "x": 0.5,
+      "y": 0.46,
+      "size": 0.06,
+      "color": "#E6E8EE",
+      "align": "center",
+      "visible": "card.focus.exists"
+    },
+    {
+      "type": "text",
+      "text": "{time.hhmm}",
+      "x": 0.5,
+      "y": 0.14,
+      "size": 0.2,
+      "color": "#E6E8EE",
+      "align": "center",
+      "font": "sans",
+      "weight": "bold"
+    },
+    {
+      "type": "text",
+      "text": "{time.day}, {time.date}",
+      "x": 0.5,
+      "y": 0.23,
+      "size": 0.04,
+      "color": "#8A8F9C",
+      "align": "center"
+    },
+    {
+      "type": "text",
+      "text": "{sessions.working} working, {sessions.waiting} waiting",
+      "x": 0.5,
+      "y": 0.74,
+      "size": 0.035,
+      "color": "#8A8F9C",
+      "align": "center"
+    },
+    {
+      "type": "text",
+      "text": "{session.1.title}",
+      "x": 0.5,
+      "y": 0.79,
+      "size": 0.045,
+      "color": "#E6E8EE",
+      "align": "center",
+      "visible": "session.1.exists",
+      "weight": "bold"
+    },
+    {
+      "type": "text",
+      "text": "{session.1.summary}",
+      "x": 0.5,
+      "y": 0.835,
+      "size": 0.032,
+      "color": "#8A8F9C",
+      "align": "center",
+      "visible": "session.1.exists",
+      "maxLines": 2,
+      "w": 0.84
+    }
+  ]
+}

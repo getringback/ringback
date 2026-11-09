@@ -1,0 +1,120 @@
+{
+  "version": 1,
+  "name": "Conference room",
+  "background": {
+    "gradient": [
+      "#101827",
+      "#1F2A44"
+    ]
+  },
+  "layers": [
+    {
+      "type": "text",
+      "text": "{time.hhmm}",
+      "x": 0.5,
+      "y": 0.14,
+      "size": 0.2,
+      "color": "#EEF2FF",
+      "align": "center",
+      "font": "sans",
+      "weight": "bold"
+    },
+    {
+      "type": "text",
+      "text": "{time.day}, {time.date}",
+      "x": 0.5,
+      "y": 0.23,
+      "size": 0.04,
+      "color": "#9AA5C4",
+      "align": "center"
+    },
+    {
+      "type": "text",
+      "text": "Conference",
+      "x": 0.5,
+      "y": 0.5,
+      "size": 0.05,
+      "color": "#FFD27A",
+      "align": "center",
+      "visible": "call.conference",
+      "weight": "bold"
+    },
+    {
+      "type": "circle",
+      "x": 0.38,
+      "y": 0.58,
+      "r": 0.04,
+      "fill": "#7AA2FF",
+      "visible": "call.conference",
+      "anim": {
+        "prop": "scale",
+        "from": 0.9,
+        "to": 1.1,
+        "ms": 1200,
+        "loop": "pingpong"
+      }
+    },
+    {
+      "type": "circle",
+      "x": 0.5,
+      "y": 0.58,
+      "r": 0.04,
+      "fill": "#FFD27A",
+      "visible": "call.conference",
+      "anim": {
+        "prop": "scale",
+        "from": 1.1,
+        "to": 0.9,
+        "ms": 1200,
+        "loop": "pingpong"
+      }
+    },
+    {
+      "type": "circle",
+      "x": 0.62,
+      "y": 0.58,
+      "r": 0.04,
+      "fill": "#7AF0C4",
+      "visible": "call.conference",
+      "anim": {
+        "prop": "scale",
+        "from": 0.9,
+        "to": 1.1,
+        "ms": 1500,
+        "loop": "pingpong"
+      }
+    },
+    {
+      "type": "text",
+      "text": "{sessions.working} working, {sessions.waiting} waiting",
+      "x": 0.5,
+      "y": 0.74,
+      "size": 0.035,
+      "color": "#9AA5C4",
+      "align": "center"
+    },
+    {
+      "type": "text",
+      "text": "{session.1.title}",
+      "x": 0.5,
+      "y": 0.79,
+      "size": 0.045,
+      "color": "#EEF2FF",
+      "align": "center",
+      "visible": "session.1.exists",
+      "weight": "bold"
+    },
+    {
+      "type": "text",
+      "text": "{session.1.summary}",
+      "x": 0.5,
+      "y": 0.835,
+      "size": 0.032,
+      "color": "#9AA5C4",
+      "align": "center",
+      "visible": "session.1.exists",
+      "maxLines": 2,
+      "w": 0.84
+    }
+  ]
+}

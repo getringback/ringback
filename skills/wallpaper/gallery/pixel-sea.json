@@ -1,0 +1,84 @@
+{
+  "version": 1,
+  "name": "Pixel sea",
+  "background": {
+    "gradient": [
+      "#070B1F",
+      "#121A3A",
+      "#1B2A55"
+    ]
+  },
+  "layers": [
+    {
+      "type": "particles",
+      "kind": "stars",
+      "density": 0.5,
+      "color": "#FFFFFF"
+    },
+    {
+      "type": "circle",
+      "x": 0.78,
+      "y": 0.3,
+      "r": 0.07,
+      "fill": "#F4F1D8"
+    },
+    {
+      "type": "rect",
+      "x": 0,
+      "y": 0.6,
+      "w": 1,
+      "h": 0.4,
+      "fill": "#0E2A4A"
+    },
+    {
+      "type": "rect",
+      "x": 0.42,
+      "y": 0.585,
+      "w": 0.16,
+      "h": 0.03,
+      "fill": {
+        "if": "any.needsYou",
+        "then": "#F5A624",
+        "else": "#E8734A"
+      },
+      "anim": {
+        "prop": "y",
+        "from": 0.58,
+        "to": 0.592,
+        "ms": 1600,
+        "loop": "pingpong"
+      }
+    },
+    {
+      "type": "text",
+      "text": "{time.hhmm}",
+      "x": 0.5,
+      "y": 0.14,
+      "size": 0.18,
+      "color": "#F4F1D8",
+      "align": "center",
+      "font": "pixel"
+    },
+    {
+      "type": "text",
+      "text": "{time.day} {time.date}",
+      "x": 0.5,
+      "y": 0.22,
+      "size": 0.035,
+      "color": "#9AA6D8",
+      "align": "center",
+      "font": "pixel"
+    },
+    {
+      "type": "text",
+      "text": "{session.1.title}",
+      "x": 0.5,
+      "y": 0.8,
+      "size": 0.04,
+      "color": "#F4F1D8",
+      "align": "center",
+      "font": "pixel",
+      "visible": "session.1.exists"
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "name": "ringback",
+  "owner": { "name": "Ringback" },
+  "plugins": [
+    { "name": "ringback", "source": "./", "description": "Let any Claude Code agent phone you on Android" }
+  ]
+}

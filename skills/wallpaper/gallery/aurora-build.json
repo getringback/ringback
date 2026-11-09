@@ -1,0 +1,90 @@
+{
+  "version": 1,
+  "name": "Aurora build",
+  "background": {
+    "gradient": [
+      "#0B1026",
+      "#123A5A",
+      "#1E6F6A"
+    ]
+  },
+  "layers": [
+    {
+      "type": "particles",
+      "kind": "stars",
+      "density": 0.35,
+      "color": "#CFE8FF"
+    },
+    {
+      "type": "circle",
+      "x": 0.5,
+      "y": 0.55,
+      "r": 0.28,
+      "fill": {
+        "if": "any.needsYou",
+        "then": "#F5A62455",
+        "else": "#5CF2C222"
+      },
+      "anim": {
+        "prop": "scale",
+        "from": 0.92,
+        "to": 1.08,
+        "ms": 2400,
+        "loop": "pingpong"
+      },
+      "visible": "any.working"
+    },
+    {
+      "type": "text",
+      "text": "{time.hhmm}",
+      "x": 0.5,
+      "y": 0.14,
+      "size": 0.2,
+      "color": "#F2F7FF",
+      "align": "center",
+      "font": "sans",
+      "weight": "bold"
+    },
+    {
+      "type": "text",
+      "text": "{time.day}, {time.date}",
+      "x": 0.5,
+      "y": 0.23,
+      "size": 0.04,
+      "color": "#9FB7D0",
+      "align": "center"
+    },
+    {
+      "type": "text",
+      "text": "{sessions.working} working, {sessions.waiting} waiting",
+      "x": 0.5,
+      "y": 0.74,
+      "size": 0.035,
+      "color": "#9FB7D0",
+      "align": "center"
+    },
+    {
+      "type": "text",
+      "text": "{session.1.title}",
+      "x": 0.5,
+      "y": 0.79,
+      "size": 0.045,
+      "color": "#F2F7FF",
+      "align": "center",
+      "visible": "session.1.exists",
+      "weight": "bold"
+    },
+    {
+      "type": "text",
+      "text": "{session.1.summary}",
+      "x": 0.5,
+      "y": 0.835,
+      "size": 0.032,
+      "color": "#9FB7D0",
+      "align": "center",
+      "visible": "session.1.exists",
+      "maxLines": 2,
+      "w": 0.84
+    }
+  ]
+}

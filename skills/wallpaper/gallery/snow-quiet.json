@@ -1,0 +1,70 @@
+{
+  "version": 1,
+  "name": "Snow quiet",
+  "background": {
+    "gradient": [
+      "#DDE6F0",
+      "#F5F8FB"
+    ]
+  },
+  "layers": [
+    {
+      "type": "particles",
+      "kind": "snow",
+      "density": 0.3,
+      "color": "#FFFFFF"
+    },
+    {
+      "type": "text",
+      "text": "{time.hhmm}",
+      "x": 0.5,
+      "y": 0.14,
+      "size": 0.2,
+      "color": "#25324A",
+      "align": "center",
+      "font": "sans",
+      "weight": "bold"
+    },
+    {
+      "type": "text",
+      "text": "{time.day}, {time.date}",
+      "x": 0.5,
+      "y": 0.23,
+      "size": 0.04,
+      "color": "#5D6B84",
+      "align": "center"
+    },
+    {
+      "type": "text",
+      "text": "{sessions.working} working, {sessions.waiting} waiting",
+      "x": 0.5,
+      "y": 0.74,
+      "size": 0.035,
+      "color": "#5D6B84",
+      "align": "center"
+    },
+    {
+      "type": "text",
+      "text": "{session.1.title}",
+      "x": 0.5,
+      "y": 0.79,
+      "size": 0.045,
+      "color": "#25324A",
+      "align": "center",
+      "visible": "session.1.exists",
+      "weight": "bold"
+    },
+    {
+      "type": "text",
+      "text": "{session.1.summary}",
+      "x": 0.5,
+      "y": 0.835,
+      "size": 0.032,
+      "color": "#5D6B84",
+      "align": "center",
+      "visible": "session.1.exists",
+      "maxLines": 2,
+      "w": 0.84
+    }
+  ]
+}
