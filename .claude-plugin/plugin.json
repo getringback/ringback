@@ -1,6 +1,6 @@
 {
   "name": "ringback",
-  "version": "0.7.35",
+  "version": "0.7.37",
   "description": "Let any Claude Code agent phone you on Android: a real ringing call with a local voice, plus quiet pings when a session waits on you.",
   "author": { "name": "Ringback" },
   "license": "MIT",

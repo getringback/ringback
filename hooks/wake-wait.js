@@ -230,6 +230,26 @@ async function reregister(id, now = Date.now()) {
   return true;
 }
 
+// How often a waiter that is held in the phone's long poll looks for words left on this computer.
+const STASH_CHECK_MS = 1000;
+const STASHED = Symbol("stashed");
+
+/**
+ * The long poll, or STASHED as soon as something for this session lands on this computer (the
+ * helper leaves a card tap there: helper/card-taps.js). The poll acknowledged nothing, so leaving
+ * it loses nothing; its late failure is not an error.
+ */
+function pollOrStash(id, poll, everyMs) {
+  poll.catch(() => {});
+  let timer;
+  const stashed = new Promise((resolve) => {
+    timer = setInterval(() => {
+      if (hasStash(id)) resolve(STASHED);
+    }, everyMs);
+  });
+  return Promise.race([poll, stashed]).finally(() => clearInterval(timer));
+}
+
 async function waitForWords(id, given) {
   const deps = given || waitDefaults(id);
   const cfg = loadConfig();
@@ -279,7 +299,9 @@ async function waitForWords(id, given) {
     }
     try {
       // Long-poll without acknowledging anything new (since = our own cursor).
-      const res = await deps.api.sessionInbox(cfg, id, readCursor(id), POLL_WAIT_S);
+      const res = await pollOrStash(id, Promise.resolve(deps.api.sessionInbox(cfg, id, readCursor(id), POLL_WAIT_S)), deps.stashCheckMs || STASH_CHECK_MS);
+      // Words landed on this computer meanwhile: the top of the loop takes them.
+      if (res === STASHED) continue;
       if ((res.messages || []).length) {
         if (await holdForHooks()) continue;
         const msgs = await drain(hookCfg(cfg), id, deps);

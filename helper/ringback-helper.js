@@ -772,6 +772,8 @@ async function main(argv) {
   }, REACH_EVERY_MS);
   // Step 4: live terminals and screens, in the background next to the inbox loop.
   const streams = require("./streams.js").startStreams({ log: (l) => log(l) });
+  // A tap on a card reaches the session that showed it (helper/card-taps.js).
+  const cardTaps = require("./card-taps.js").start(ctx, { log, dispatch: dispatchStash });
   try {
     while (await step(ctx)) {
       // Keep polling while this machine has live sessions.
@@ -782,6 +784,7 @@ async function main(argv) {
     clearInterval(reachTimer);
     if (ctx.net) ctx.net.stop();
     streams.stop();
+    cardTaps.stop();
     await Promise.allSettled([...ctx.runs]);
     log("helper exiting");
   }
