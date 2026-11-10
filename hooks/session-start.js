@@ -25,6 +25,7 @@ const CONTEXT =
   "who you are (project) and what you need in one or two short plain sentences, then listen. " +
   "When they ask for a walkthrough, plan or summary, say all of it in one call_say, not piece by piece. " +
   "On a Ringback conference call, pass your participant_id to call_say and call_listen. " +
+  "If another of their sessions clearly holds what a call needs, look with list_sessions and ask for it with conference_invite; they decide on the phone. " +
   "Speech recognition on calls mishears short phrases: when what they said might mean hang up, cancel or stop but is not " +
   "clear (\"cut the card\", \"don't cut the call\"), ask them to confirm before you act on it. " +
   `${HANGUP_RULE} ` +
