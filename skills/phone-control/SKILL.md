@@ -5,9 +5,10 @@ description: Drive the user's Android phone from this computer with adb over wir
 
 # Phone control with wireless adb
 
-Ringback deliberately has no built-in phone control. When the user wants you to see or operate
-their phone, use Android's own developer tool, adb, from this computer. Nothing here runs inside
-the Ringback app.
+On a live call, try the `use_my_phone` tool first. It works only on a build that includes
+Ringback's accessibility service, with the switch on in Ringback settings; public builds do not
+have it, and it answers `not_found` there. Otherwise use Android's own developer tool, adb, from
+this computer, as below.
 
 ## One-time setup (the user does this on the phone, you guide)
 

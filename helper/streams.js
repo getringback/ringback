@@ -25,6 +25,7 @@ const { sendMedia } = require("../lib/media-transfer.js");
 const tmux = require("../lib/tmux.js");
 const win = require("../lib/window.js");
 const desk = require("../lib/desk.js");
+const remoteInput = require("../lib/remote-input.js");
 const sessions = require("../lib/sessions.js");
 const { redact } = require("../lib/redact.js");
 const { buildCaps, ffmpegCommand, MACHINE } = require("../lib/stream-caps.js");
@@ -239,6 +240,7 @@ class TerminalStream extends BaseStream {
         this.reconnecting = false;
         o.log(`stream ${this.id}: reconnected`);
         this.inputState = null;
+        this.typable = null;
         // The backlog comes again after this: the phone replaces what it shows.
         this.send({ type: "reset" });
         this.sendInputState(sessions.readSession(this.req.session_id) || this.rec);
@@ -260,7 +262,9 @@ class TerminalStream extends BaseStream {
   setView(view) {
     if (this.source) this.source.stop();
     this.source = null;
-    if (view === "raw" && this.rawAvailable()) {
+    this.rawLive = view === "raw" && this.rawAvailable();
+    this.sendTypable();
+    if (this.rawLive) {
       this.source = tmux.poll(this.rec.tmux_pane, (text) => this.send({ type: "raw", text: redact(text).slice(-MAX_RAW) }), { exec: this.loop.o.tmuxExec });
       return;
     }
@@ -269,6 +273,40 @@ class TerminalStream extends BaseStream {
       this.remember(lines);
       for (const b of transcript.batches(lines)) this.send({ type: "lines", lines: b });
     }, { pollMs: this.loop.o.tailPollMs, mapper: this.client === "codex" ? createCodexMapper() : transcript.createMapper() });
+  }
+
+  /** Keys from the phone reach the pane only while its Raw view is the one on screen. */
+  sendTypable() {
+    const available = Boolean(this.rawLive);
+    if (available === this.typable) return;
+    this.typable = available;
+    this.send({ type: "control_state", available });
+  }
+
+  /**
+   * What the owner types on the phone goes into the session's own terminal, in the order typed.
+   * Only on the Raw view of a live tmux pane: he sees the terminal he is typing into.
+   */
+  typeIntoPane(msg) {
+    if (!this.rawLive || !this.rawAvailable() || this.overTypingLimit()) return;
+    const action = tmux.parseInput(msg);
+    if (!action) return;
+    const pane = this.rec.tmux_pane;
+    const o = this.loop.o;
+    this.typing = (this.typing || Promise.resolve())
+      .then(() => (this.ended || !this.rawLive ? false : tmux.send(pane, action, o.tmuxExec)))
+      // Never the error's message: it repeats the command line, so what he typed (a password, say).
+      .catch((err) => o.log(`stream ${this.id}: typing failed (${err.code || err.signal || "error"})`));
+  }
+
+  overTypingLimit() {
+    const t = Date.now();
+    if (!this.typedSince || t - this.typedSince >= 1000) {
+      this.typedSince = t;
+      this.typedCount = 0;
+    }
+    this.typedCount += 1;
+    return this.typedCount > remoteInput.MAX_PER_SECOND;
   }
 
   /** Whether typed text reaches the session now; sent at start and on every change. */
@@ -296,6 +334,7 @@ class TerminalStream extends BaseStream {
   onControl(msg) {
     if (msg.type === "view" && (msg.view === "raw" || msg.view === "activity")) return this.file ? this.setView(msg.view) : undefined;
     if (msg.type === "media_get") return this.media(msg);
+    if (msg.type === "input") return this.typeIntoPane(msg);
     return super.onControl(msg);
   }
 
@@ -331,9 +370,41 @@ class VideoStream extends BaseStream {
       if (!caps.window || !caps.window.available) return this.bye("window_not_found");
       if (!(await this.resolveWindow())) return undefined;
     } else return this.bye("not_allowed");
+    this.setUpControl();
     // The phone pauses at once when nobody watches yet; a pause during the checks above wins.
     if (!this.paused) this.run();
     return undefined;
+  }
+
+  controlTarget() {
+    const o = this.loop.o;
+    const caps = this.loop.caps;
+    const cropped = this.req.kind === "window" && caps.window.method === "ddagrab-crop";
+    return remoteInput.targetFor(this.req.kind, {
+      platform: o.platform,
+      cfg: o.cfg(),
+      env: o.env || process.env,
+      which: desk.which,
+      display: this.display,
+      screenMethod: caps.screen && caps.screen.method,
+      cropRect: cropped ? () => win.cropRect(this.window) : null,
+    });
+  }
+
+  /** A window found again may have moved or gone off screen; the phone is told if control changed. */
+  refreshControl() {
+    const target = this.controlTarget();
+    if (this.control && target) return this.control.retarget(target);
+    if (this.control) this.control.close();
+    return this.setUpControl();
+  }
+
+  /** Whether the phone's taps and typing reach this stream; the phone shows Control only if so. */
+  setUpControl() {
+    const o = this.loop.o;
+    const target = this.controlTarget();
+    this.control = target ? remoteInput.createController(target, { spawn: o.spawn, env: o.env || process.env, log: o.log }) : null;
+    this.send({ type: "control_state", available: Boolean(this.control) });
   }
 
   /** Finds the session's window again (it may have moved). false after a bye. */
@@ -535,18 +606,27 @@ class VideoStream extends BaseStream {
   }
 
   async onControl(msg) {
+    if (msg.type === "input") {
+      // Nobody is watching a paused stream, so nothing can be meant for it.
+      if (this.control && !this.paused) this.control.apply(msg);
+      return;
+    }
     if (msg.type === "pause") {
       // While recording the stream keeps flowing (spec 2.5).
       if (this.rec) return;
       this.paused = true;
       this.stopChild();
+      if (this.control) this.control.cancel();
       return;
     }
     if (msg.type === "resume") {
       if (!this.paused && this.child) return;
       this.paused = false;
       if (this.child) return;
-      if (this.req.kind === "window" && !(await this.resolveWindow())) return;
+      if (this.req.kind === "window") {
+        if (!(await this.resolveWindow())) return;
+        this.refreshControl();
+      }
       this.run();
       return;
     }
@@ -574,6 +654,7 @@ class VideoStream extends BaseStream {
     if (this.ended) return;
     this.ended = true;
     this.stopChild();
+    if (this.control) this.control.close();
     const finishing = this.finishRecording();
     this.loop.active.delete(this.id);
     // The socket closes after a machine recording is saved, so the phone can show its path.
