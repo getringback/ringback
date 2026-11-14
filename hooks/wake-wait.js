@@ -1,5 +1,21 @@
 #!/usr/bin/env node
 "use strict";
+
+// Install the error boundary before loading any plugin code, including common.js.
+if (require.main === module) {
+  try {
+    require("./guard.js").install("wake-wait", 82800000);
+  } catch (err) {
+    try {
+      const fs = require("fs"), path = require("path");
+      const dir = process.env.RINGBACK_HOME || path.join(require("os").homedir(), ".ringback");
+      fs.mkdirSync(dir, { recursive: true });
+      fs.appendFileSync(path.join(dir, "hooks.log"), `${new Date().toISOString()} wake-wait load: ${err.message}\n`);
+    } catch { /* An incomplete install must stay quiet. */ }
+    process.exit(0);
+  }
+}
+
 // SessionStart / UserPromptSubmit / PostToolUse / Stop, registered with "asyncRewake": true (from
 // any hook, so a session reloaded with /reload-plugins is armed on its next hook, FOLLOWUPS item 12). Runs in the background while the
 // session sits idle (in its terminal or the Claude Desktop Code tab) and long-polls the phone for words the user says on a call to
@@ -392,14 +408,14 @@ async function main() {
   const input = await readStdin().catch(() => ({}));
   const id = safeId(input.session_id);
   // A waiter armed from a subagent's hook could rewake that subagent instead of the session.
-  if (!id || isSubagentHook(input) || startCheck(id) !== "ok" || !claimSlot(id)) process.exit(0);
+  if (!id || isSubagentHook(input) || !isConfigured(loadConfig()) || startCheck(id) !== "ok" || !claimSlot(id)) process.exit(0);
   let code = 0;
+  let text = "";
   try {
-    const text = await waitForWords(id);
+    text = await waitForWords(id);
     if (text) {
       // Woken by a call: it is busy with them now, not waiting on them (FOLLOWUPS item 37).
       await clearNeedsYou(loadConfig(), id);
-      process.stderr.write(text);
       code = 2;
     }
   } catch (err) {
@@ -407,7 +423,10 @@ async function main() {
   } finally {
     releaseSlot(id);
   }
-  process.exit(code);
+  // asyncRewake shows stderr (or stdout when stderr is empty) to the model as raw text: plain
+  // words on stderr are the proven delivery. Exit only after the write has been flushed.
+  if (code === 2) process.stderr.write(text, () => process.exit(2));
+  else process.exit(code);
 }
 
 if (require.main === module) main();

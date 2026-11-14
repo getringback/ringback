@@ -1,5 +1,21 @@
 #!/usr/bin/env node
 "use strict";
+
+// Install the error boundary before loading any plugin code, including common.js.
+if (require.main === module) {
+  try {
+    require("./guard.js").install("notification", 28000);
+  } catch (err) {
+    try {
+      const fs = require("fs"), path = require("path");
+      const dir = process.env.RINGBACK_HOME || path.join(require("os").homedir(), ".ringback");
+      fs.mkdirSync(dir, { recursive: true });
+      fs.appendFileSync(path.join(dir, "hooks.log"), `${new Date().toISOString()} notification load: ${err.message}\n`);
+    } catch { /* An incomplete install must stay quiet. */ }
+    process.exit(0);
+  }
+}
+
 // Notification: when a session waits on the user (permission prompt, idle), tell their
 // phone quietly. Idle pings are throttled per session; `ring_on_permission` turns a
 // permission prompt into a real call.

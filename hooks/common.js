@@ -6,8 +6,6 @@ const fs = require("fs");
 const path = require("path");
 const { configDir } = require("../lib/config.js");
 
-const MAX_LOG_BYTES = 1024 * 1024;
-
 function readStdin() {
   return new Promise((resolve) => {
     const chunks = [];
@@ -25,16 +23,7 @@ function readStdin() {
 
 function logError(where, err) {
   try {
-    fs.mkdirSync(configDir(), { recursive: true });
-    const line = `${new Date().toISOString()} ${where}: ${err && err.message ? err.message : err}\n`;
-    const file = path.join(configDir(), "hooks.log");
-    // Audit L4: the same 1 MB rotation as helper.log (one line every poll per idle session adds up).
-    try {
-      if (fs.statSync(file).size > MAX_LOG_BYTES) fs.renameSync(file, `${file}.1`);
-    } catch {
-      // No log yet, or another hook rotated it first.
-    }
-    fs.appendFileSync(file, line);
+    require("./log.js").write("hooks.log", `${where}: ${err && err.message ? err.message : err}`);
   } catch {
     // Logging must never be the thing that breaks a hook.
   }
@@ -68,14 +57,28 @@ async function runHook(name, fn) {
   try {
     const input = await readStdin();
     const out = await fn(input);
-    if (out) process.stdout.write(JSON.stringify(out));
+    if (out) process.stdout.write(JSON.stringify(markOutput(out)));
   } catch (err) {
     logError(name, err);
   }
   process.exit(0);
 }
 
+function markOutput(out) {
+  const mark = (text) => typeof text === "string" && text && !text.startsWith("[Ringback]") ? `[Ringback] ${text}` : text;
+  if (typeof out.reason === "string") out.reason = mark(out.reason);
+  const specific = out.hookSpecificOutput;
+  if (specific) {
+    if (typeof specific.additionalContext === "string") specific.additionalContext = mark(specific.additionalContext);
+    if (specific.decision && typeof specific.decision.message === "string") specific.decision.message = mark(specific.decision.message);
+  }
+  for (const step of out.injectSteps || []) {
+    if (step.systemMessage) step.systemMessage.systemMessage = mark(step.systemMessage.systemMessage);
+  }
+  return out;
+}
+
 /** True when a hook fired inside a subagent: Claude Code then adds agent_id to the session's input. */
 const isSubagentHook = (input) => Boolean(input && input.agent_id);
 
-module.exports = { readStdin, logError, readState, writeState, projectOf, runHook, isSubagentHook };
+module.exports = { readStdin, logError, readState, writeState, projectOf, runHook, isSubagentHook, markOutput };

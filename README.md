@@ -5,11 +5,30 @@ notifications and cards, and lets you call a running session from the phone.
 
 Claude Code gets everything from the plugin itself (`/plugin` install, then `/ringback:pair <code>`).
 
+Node 20 or newer must be on PATH for the client, hooks and helper.
+
+| Computer | Available | Limits |
+|---|---|---|
+| Windows | Calls, cards, hooks, idle wake, phone-started terminal windows, terminal transcript and screen sharing | Window view and phone input need a supported session window; the desk is Linux only |
+| Linux | Calls, cards, hooks, idle wake, phone-started tmux sessions, terminal transcript, screen sharing and the optional desk | New sessions need tmux; screen sharing needs a display |
+| macOS | Calls, cards, hooks, idle wake, terminal transcript and phone starts in Terminal, with tmux as a fallback | Window view, phone input and the desk are not on Mac yet; screen sharing needs Screen Recording permission for the helper's Node process |
+
+The Mac Terminal route needs a GUI login and permission to control Terminal in System Settings
+under Privacy & Security > Automation. Without it, Ringback tries tmux. Raw terminal view needs
+tmux on Linux or macOS. Mac GUI permissions and real calls still need testing on a real Mac.
+
+Screen sharing needs ffmpeg with libx264 on PATH:
+
+- Windows: install ffmpeg with `winget install Gyan.FFmpeg`, then reopen the terminal.
+- Linux (Debian/Ubuntu): install it with `sudo apt install ffmpeg`.
+- macOS: install it with `brew install ffmpeg`, then allow Screen Recording for Node.
+
 Adding a machine needs nothing typed: tell any session with the plugin (Claude Code, Codex, agy)
 "add this computer to my phone". Its `join_this_machine` tool finds the phone (same Wi-Fi via mDNS,
-this machine's Tailscale, or Ringback's built-in Tailscale), the phone shows "<machine> wants to
+or this machine's Tailscale), the phone shows "<machine> wants to
 join" and you tap Allow. vast.ai machines and machines with a never-join marker are refused.
 `/ringback:join <code>` stays for phones whose app does not take join requests yet.
+The standalone npm join installer and built-in Tailscale download are not available yet.
 
 ## Other clients: Claude Desktop, Codex, Antigravity
 
@@ -17,13 +36,14 @@ Pair once in Claude Code first. The pairing lives in `~/.ringback/config.json`; 
 ever holds the token. Then run one command:
 
 ```
-node plugin/bin/ringback-install.js --client claude-desktop|codex|agy|all
+node bin/ringback-install.js --client codex
 ```
 
 It is idempotent (a second run changes nothing), copies every file it changes to
 `<file>.bak-ringback-<time>` first, and prints what it changed. `--dry-run` only shows what it
 would do. `--root <dir>` picks the plugin copy the configs point at; by default that is the stable
 release copy `~/.ringback/release-plugin` when it exists, else this plugin folder.
+Run it from the plugin folder; choose `claude-desktop`, `codex`, `agy` or `all` for `--client`.
 
 | Client | What it writes | Call out (call_user, notify_user, show_on_phone...) | On the phone's Sessions list | Can be called |
 |---|---|---|---|---|
@@ -34,7 +54,7 @@ release copy `~/.ringback/release-plugin` when it exists, else this plugin folde
 
 After installing:
 
-- Claude Desktop: quit it fully (tray icon, Quit) and open it again. Run the installer while
+- Claude Desktop: quit it fully and open it again. Run the installer while
   Desktop is closed: a running Desktop rewrites `claude_desktop_config.json` from memory.
 
 Calling Claude Desktop: Ringback never automates a window, types into an app or reads the screen.
@@ -68,3 +88,9 @@ own window. When a session cannot be woken there (closed, headless, a Claude Des
 session without `agy_visible_wake`, or a Codex window whose Ringback hooks are not trusted yet), the
 phone hears "<name> could not be reached on screen" and `~/.ringback/helper.log` says why
 (`unreachable <id> ...`).
+
+## What the [Ringback] lines in your terminal mean
+
+Lines such as "Stop hook feedback" with a `[Ringback]` note mean a phone call or a card tap
+has arrived through the session's hooks. They are normal messages from your phone, not an error.
+The session reads them and continues with your request.

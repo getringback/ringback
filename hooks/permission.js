@@ -1,5 +1,21 @@
 #!/usr/bin/env node
 "use strict";
+
+// Install the error boundary before loading any plugin code, including common.js.
+if (require.main === module) {
+  try {
+    require("./guard.js").install("permission", 590000);
+  } catch (err) {
+    try {
+      const fs = require("fs"), path = require("path");
+      const dir = process.env.RINGBACK_HOME || path.join(require("os").homedir(), ".ringback");
+      fs.mkdirSync(dir, { recursive: true });
+      fs.appendFileSync(path.join(dir, "hooks.log"), `${new Date().toISOString()} permission load: ${err.message}\n`);
+    } catch { /* An incomplete install must stay quiet. */ }
+    process.exit(0);
+  }
+}
+
 // PermissionRequest: the pending permission goes to their phone (lib/tap-approval.js, PERMISSION TAP
 // CONTRACT), where they tap Allow once or Deny; that is the decision. No tap in time, or an old
 // phone, leaves the normal terminal prompt in place. A spoken yes never approves by itself.

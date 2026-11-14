@@ -1,5 +1,21 @@
 #!/usr/bin/env node
 "use strict";
+
+// Install the error boundary before loading any plugin code, including common.js.
+if (require.main === module) {
+  try {
+    require("./guard.js").install("client-hook", (process.argv[2] === "agy" ? (process.argv[3] === "Stop" ? 82800000 : 14000) : ({ end: 2200, context: 9000, inbox: 14000, beat: 28000 }[process.argv[3]] || 9000)));
+  } catch (err) {
+    try {
+      const fs = require("fs"), path = require("path");
+      const dir = process.env.RINGBACK_HOME || path.join(require("os").homedir(), ".ringback");
+      fs.mkdirSync(dir, { recursive: true });
+      fs.appendFileSync(path.join(dir, "hooks.log"), `${new Date().toISOString()} client-hook load: ${err.message}\n`);
+    } catch { /* An incomplete install must stay quiet. */ }
+    process.exit(0);
+  }
+}
+
 // Hook adapter for clients other than Claude Code (FOLLOWUPS item 20):
 //   node client-hook.js codex <context|beat|inbox|end>
 //   node client-hook.js agy <SessionStart|PreInvocation|Stop>

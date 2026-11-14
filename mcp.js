@@ -13,7 +13,7 @@ const desktopChat = require("./lib/desktop-chat.js");
 const { api } = require("./lib/client.js");
 const { HANGUP_HINT } = require("./lib/hangup-rule.js");
 
-const SERVER = { name: "ringback", version: "0.7.37" };
+const SERVER = { name: "ringback", version: "0.7.38" };
 const SUPPORTED = ["2025-06-18", "2025-03-26", "2024-11-05"];
 
 const TOOLS = allTools();

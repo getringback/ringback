@@ -54,13 +54,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function log(line) {
   try {
-    const file = path.join(configDir(), "helper.log");
-    try {
-      if (fs.statSync(file).size > 1024 * 1024) fs.renameSync(file, `${file}.1`);
-    } catch {
-      // No log yet.
-    }
-    fs.appendFileSync(file, `${new Date().toISOString()} ${line}\n`);
+    require("../hooks/log.js").write("helper.log", line);
   } catch {
     // Logging never stops the helper.
   }
@@ -77,7 +71,27 @@ function claudeCommand(cfg, env = process.env) {
       log("RINGBACK_CLAUDE_COMMAND is not a JSON array; using claude");
     }
   }
-  return ["claude"];
+  const tools = require("../lib/service.js").toolEnvironment({ env, home: env.HOME || env.USERPROFILE || os.homedir() });
+  if (tools.claudePath && /\.cmd$/i.test(tools.claudePath)) {
+    const cli = path.join(path.dirname(tools.claudePath), "node_modules", "@anthropic-ai", "claude-code", "cli.js");
+    if (fs.existsSync(cli)) return [process.execPath, cli];
+  }
+  return [tools.claudePath || "claude"];
+}
+
+function missingBinary(ctx, name) {
+  if (!ctx.missingBinaries) ctx.missingBinaries = new Set();
+  if (ctx.missingBinaries.has(name)) return;
+  ctx.missingBinaries.add(name);
+  (ctx.log || log)(`${name} was not found. Install ${name} for this user, then run the Ringback installer again.`);
+}
+
+function prepareRuntime({ env = process.env, refresh = require("../lib/install.js").refreshInstall, writeLog = log } = {}) {
+  try { refresh({ onError: (err) => writeLog(`install refresh: ${err.message}`) }); }
+  catch (err) { writeLog(`install refresh: ${err.message}`); }
+  const tools = require("../lib/service.js").toolEnvironment({ env, home: env.HOME || env.USERPROFILE || os.homedir() });
+  env.PATH = tools.pathEnv;
+  return tools;
 }
 
 /**
@@ -111,7 +125,8 @@ function readAgents(ctx) {
     try {
       child = ctx.spawn(cmd, [...pre, "agents", "--json"], { env: lock.helperEnv(ctx.env), stdio: ["ignore", "pipe", "ignore"], windowsHide: true });
     } catch (err) {
-      log(`claude agents: ${err.message}`);
+      if (err.code === "ENOENT") missingBinary(ctx, "claude");
+      else log(`claude agents: ${err.message}`);
       resolve("");
       return;
     }
@@ -119,7 +134,8 @@ function readAgents(ctx) {
       if (out.length < MAX_STDOUT) out += c.toString("utf8");
     });
     child.on("error", (err) => {
-      log(`claude agents: ${err.message}`);
+      if (err.code === "ENOENT") missingBinary(ctx, "claude");
+      else log(`claude agents: ${err.message}`);
       resolve("");
     });
     child.on("close", () => resolve(out));
@@ -740,6 +756,7 @@ async function main(argv) {
     await require("./desk-cli.js").deskCli(argv.slice(1));
     return;
   }
+  const tools = prepareRuntime();
   const service = argv.includes("--service");
   let cfg = loadConfig();
   if (service) {
@@ -750,6 +767,8 @@ async function main(argv) {
   }
   process.on("exit", () => lock.release(process.pid));
   const ctx = newContext({ cfg, cursor: loadMachineCursor(), service });
+  if (!tools.claudePath && !cfg.claude_command && !process.env.RINGBACK_CLAUDE_COMMAND) missingBinary(ctx, "claude");
+  if (!tools.codexPath) missingBinary(ctx, "codex");
   ctx.net = startMachine(ctx);
   log(`helper ${lock.VERSION} started on ${MACHINE} (pid ${process.pid}${service ? ", service" : ""})`);
   remarkOrigins();
@@ -763,6 +782,7 @@ async function main(argv) {
     beats += 1;
     beatAll(ctx).catch((err) => log(`heartbeat: ${err.message}`));
     if (beats % MACHINE_EVERY_BEATS === 0) reportMachine(ctx);
+    if (beats % 60 === 0) require("../lib/plugin-copy.js").pruneHome(configDir(), { onError: (err) => log(`state cleanup: ${err.message}`) });
   }, BEAT_EVERY_MS);
   const status = setInterval(() => {
     watchStatus(ctx).catch((err) => log(`status: ${err.message}`));
@@ -824,4 +844,5 @@ module.exports = {
   remarkOrigins,
   queueToCodex,
   QUEUE_CONFIRM_MS,
+  prepareRuntime,
 };

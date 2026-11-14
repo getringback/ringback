@@ -1,5 +1,21 @@
 #!/usr/bin/env node
 "use strict";
+
+// Install the error boundary before loading any plugin code, including common.js.
+if (require.main === module) {
+  try {
+    require("./guard.js").install("session-start", 9000);
+  } catch (err) {
+    try {
+      const fs = require("fs"), path = require("path");
+      const dir = process.env.RINGBACK_HOME || path.join(require("os").homedir(), ".ringback");
+      fs.mkdirSync(dir, { recursive: true });
+      fs.appendFileSync(path.join(dir, "hooks.log"), `${new Date().toISOString()} session-start load: ${err.message}\n`);
+    } catch { /* An incomplete install must stay quiet. */ }
+    process.exit(0);
+  }
+}
+
 // SessionStart: tell every agent it can phone its person, and when it should.
 
 const fs = require("fs");
@@ -11,7 +27,7 @@ const { cleanupMedia } = require("../lib/images.js");
 const { HANGUP_RULE } = require("../lib/hangup-rule.js");
 
 const CONTEXT =
-  "Ringback is connected: you can phone the user on their Android phone with the call_user tool " +
+  "[Ringback] Ringback is connected: you can phone the user on their Android phone with the call_user tool " +
   "(then call_say / call_hang_up), or send a quiet notify_user. The user wants any session that needs them to " +
   "call them. Call when: you are blocked on a decision, answer or approval only they can give; you finished " +
   "the task they gave you (call to say what is done and ask for the next steps); a task that ran longer than " +
@@ -39,7 +55,7 @@ const CONTEXT =
 
 // Bump when CONTEXT changes: sessions that started with an older text get the new one once, on
 // their next prompt (hooks/inbox.js), without a restart.
-const GUIDANCE_VERSION = "2026-11-09.1";
+const GUIDANCE_VERSION = "2026-11-12.1";
 
 /** A vast.ai machine never uses Ringback: say so in hooks.log once, add nothing to the session. */
 function noteBlockedOnce(why) {

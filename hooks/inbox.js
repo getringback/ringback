@@ -1,5 +1,21 @@
 #!/usr/bin/env node
 "use strict";
+
+// Install the error boundary before loading any plugin code, including common.js.
+if (require.main === module) {
+  try {
+    require("./guard.js").install("inbox", 14000);
+  } catch (err) {
+    try {
+      const fs = require("fs"), path = require("path");
+      const dir = process.env.RINGBACK_HOME || path.join(require("os").homedir(), ".ringback");
+      fs.mkdirSync(dir, { recursive: true });
+      fs.appendFileSync(path.join(dir, "hooks.log"), `${new Date().toISOString()} inbox load: ${err.message}\n`);
+    } catch { /* An incomplete install must stay quiet. */ }
+    process.exit(0);
+  }
+}
+
 // PostToolUse / UserPromptSubmit / Stop (synchronous, must stay fast): hand a busy session what
 // the user said on a call to it. The network is touched only when the helper raised this session's
 // pending flag, so a normal tool call costs one file check.
@@ -13,6 +29,8 @@ const { runHook, logError, isSubagentHook } = require("./common.js");
 const { CONTEXT, GUIDANCE_VERSION } = require("./session-start.js");
 const turns = require("../lib/turns.js");
 const { lastAssistantText } = require("../lib/progress.js");
+const { runningVersion, quietStop } = require("./claude-version.js");
+const { isLiveSpeech } = require("../lib/inbox-format.js");
 
 function markLocal(id, state, now) {
   const rec = readSession(id);
@@ -60,13 +78,25 @@ async function callText(input, id, deps) {
   const stop = input.hook_event_name === "Stop";
   if (!hasPending(id)) {
     if (stop) markLocal(id, "idle", deps.now);
-    return "";
+    return { text: "", live: "", quiet: "" };
   }
   const cfg = loadConfig();
-  if (!isConfigured(cfg)) return "";
+  if (!isConfigured(cfg)) return { text: "", live: "", quiet: "" };
   const msgs = await take(cfg, id, deps);
   if (stop) markLocal(id, msgs.length ? "busy" : "idle", deps.now);
-  return msgs.length ? describeMessages(msgs) : "";
+  return {
+    text: describeMessages(msgs),
+    live: describeMessages(msgs.filter(isLiveSpeech)),
+    quiet: describeMessages(msgs.filter((m) => !isLiveSpeech(m))),
+  };
+}
+
+function stopOutput(text, cfg = {}, version = runningVersion()) {
+  if (!text) return null;
+  const mode = cfg.stop_delivery || "auto";
+  return mode === "context" || (mode === "auto" && quietStop(version))
+    ? { hookSpecificOutput: { hookEventName: "Stop", additionalContext: text } }
+    : { decision: "block", reason: text };
 }
 
 /** Turn bookkeeping for the call-when-done nudge (FOLLOWUPS item 29). Never breaks the hook. */
@@ -104,18 +134,22 @@ async function inbox(input, deps = { api, now: Date.now() }) {
   trackTurn(event, id, input, deps.now);
   const said = await callText(input, id, deps);
   if (event === "Stop") {
-    if (said) return { decision: "block", reason: said };
+    if (said.text) return stopOutput(said.text, loadConfig());
     const call = callNudge(id, input, deps.now);
-    return call ? { decision: "block", reason: call } : null;
+    return stopOutput(call, loadConfig());
   }
   // PostToolUse: their words go as the hook's own feedback (decision block + reason), not as context
   // inside the tool result, where models take them for text in the command output and ignore them
   // (wake reliability run 3, 2026-11-08). The tool already ran; block only shows the reason.
-  if (event === "PostToolUse" && said) return { decision: "block", reason: said };
-  const text = [guidance, said].filter(Boolean).join("\n\n");
+  if (event === "PostToolUse" && said.live) {
+    const out = { decision: "block", reason: said.live };
+    if (said.quiet) out.hookSpecificOutput = { hookEventName: event, additionalContext: said.quiet };
+    return out;
+  }
+  const text = [guidance, said.text].filter(Boolean).join("\n\n");
   return text ? { hookSpecificOutput: { hookEventName: event, additionalContext: text } } : null;
 }
 
 if (require.main === module) runHook("inbox", (input) => inbox(input));
 
-module.exports = { inbox };
+module.exports = { inbox, stopOutput };

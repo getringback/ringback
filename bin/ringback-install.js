@@ -13,6 +13,19 @@ const { execFileSync } = require("child_process");
 const inst = require("../lib/install.js");
 const approve = require("../lib/auto-approve.js");
 const { loadConfig, isConfigured } = require("../lib/config.js");
+const copies = require("../lib/plugin-copy.js");
+
+/** The stable copy, waiting up to 15 s while a starting session holds the install lock. */
+function stableCopy(root) {
+  for (let i = 0; ; i += 1) {
+    try {
+      return copies.ensureStableCopy(root);
+    } catch (err) {
+      if (i >= 60 || !/in progress/.test(err.message)) throw err;
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 250);
+    }
+  }
+}
 
 function read(file) {
   try {
@@ -78,6 +91,7 @@ function agy(ctx) {
   const mcpFile = path.join(os.homedir(), ".gemini", "config", "mcp_config.json");
   const entry = inst.mcpEntry(ctx.root, "agy");
   const lines = [];
+  let failed = false;
   if (ctx.dryRun) lines.push(`  MCP server: would run agy mcp add ringback (${mcpFile})`);
   else {
     const before = read(mcpFile);
@@ -88,6 +102,7 @@ function agy(ctx) {
       if (backup && !changed) fs.rmSync(backup, { force: true });
       lines.push(`  MCP server: ${changed ? "updated" : "already set"} via agy mcp add (${mcpFile})${changed && backup ? ` (backup ${backup})` : ""}`);
     } catch (err) {
+      failed = true;
       if (backup) fs.rmSync(backup, { force: true });
       lines.push(`  MCP server: could not run agy mcp add (${err.message.split("\n")[0]}); is agy installed?`);
     }
@@ -97,6 +112,7 @@ function agy(ctx) {
   lines.push(apply(ctx, approve.agySettings(), (t) => approve.addAllowRule(t, approve.AGY_RULE), "view_image approval"));
   return {
     lines,
+    failed,
     notes: [
       "New agy sessions load it. agy sessions show on the phone; a busy one hears you at its next model step, an idle one is woken in its own window only with \"agy_visible_wake\": true in ~/.ringback/config.json (else the phone says it could not be reached on screen).",
       "agy has no session-end hook: a closed agy session leaves the phone's list 24 hours after its last activity.",
@@ -122,10 +138,24 @@ function main(argv) {
   }
   const out = [`Ringback plugin: ${ctx.root}${ctx.dryRun ? " (dry run, nothing written)" : ""}`];
   let failed = false;
+  if (!ctx.dryRun) {
+    try {
+      ctx.root = stableCopy(ctx.root);
+      // Repairing other clients and cleanup never fail this client's install (connect-tool reads
+      // any "Failed:" line as not connected), so they are reported as notes.
+      const note = (what) => (err) => out.push(`  Note: skipped ${what} (${String(err.message).split("\n")[0]})`);
+      inst.refreshClientPaths(ctx.root, { onError: note("repairing an existing client entry") });
+      copies.pruneHome(undefined, { onError: note("removing an old Ringback file") });
+    } catch (err) {
+      process.stdout.write(`${out.join("\n")}\n  Failed: ${err.message}\n`);
+      return 1;
+    }
+  }
   for (const client of opts.clients) {
     out.push(`${NAMES[client]}:`);
     try {
       const r = STEPS[client](ctx);
+      if (r.failed) failed = true;
       out.push(...r.lines, ...r.notes.map((n) => `  Note: ${n}`));
     } catch (err) {
       failed = true;
