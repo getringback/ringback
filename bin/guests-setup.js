@@ -79,7 +79,7 @@ if (require.main === module) {
     .then((code) => process.exit(code))
     .catch((err) => {
       // Never the secret: only the message of what failed.
-      process.stdout.write(`Setup failed: ${err && err.message ? err.message : err}\n`);
+      process.stdout.write(`Setup failed: ${err && err.message ? err.message : err}. Nothing secret was saved on this computer. Open Ringback on your phone, then run this again.\n`);
       process.exit(1);
     });
 }
