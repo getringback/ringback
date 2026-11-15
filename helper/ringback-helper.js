@@ -23,6 +23,7 @@ const { api } = require("../lib/client.js");
 const sessions = require("../lib/sessions.js");
 const lock = require("../lib/helper-lock.js");
 const { isLeftMessage } = require("../lib/conference.js");
+const { isForOthers } = require("../lib/inbox-format.js");
 const { waiterAlive } = require("../hooks/wake-wait.js");
 const starts = require("../lib/starts.js");
 const clients = require("../lib/clients.js");
@@ -411,8 +412,9 @@ async function dispatchStash(ctx, rec) {
   }
   // Under the claim lock, so a hook of the same session cannot take the same stash meanwhile.
   const taken = (await sessions.withClaimLock(rec.id, () => sessions.takeStash(rec.id))) || [];
-  // Being taken off a conference call never wakes an idle session (spec 01 section 4).
-  const wake = taken.filter((m) => !isLeftMessage(m));
+  // Being taken off a conference call never wakes an idle session (spec 01 section 4), and neither
+  // does a line the phone addressed only to other seats (live conference 2026-11-15).
+  const wake = taken.filter((m) => !isLeftMessage(m) && !isForOthers(m));
   if (!wake.length) return;
   const answer = visibleWake.canQueue(ctx.cfg, rec, ctx)
     ? queueToCodex(ctx, rec, wake)

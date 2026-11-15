@@ -34,6 +34,9 @@ const { isBusy } = require("../lib/busy.js");
 const turns = require("../lib/turns.js");
 const { readStdin, logError, isSubagentHook } = require("./common.js");
 const { isLeftMessage } = require("../lib/conference.js");
+const { isForOthers } = require("../lib/inbox-format.js");
+// A removal, or a conference line the phone addressed only to other seats, never wakes the session.
+const wakes = (m) => !isLeftMessage(m) && !isForOthers(m);
 const { isCallStarted } = require("../lib/inbox-format.js");
 
 const POLL_WAIT_S = 50;
@@ -307,7 +310,7 @@ async function waitForWords(id, given) {
     // the helper while this waiter armed) wake it at once; the phone will not send them again.
     if (hasStash(id) && (await holdForHooks())) continue;
     if (hasStash(id)) {
-      const kept = ((await drain(hookCfg(cfg), id, deps, false)) || []).filter((m) => !isLeftMessage(m));
+      const kept = ((await drain(hookCfg(cfg), id, deps, false)) || []).filter(wakes);
       if (kept.length) {
         wokenBusy(kept);
         return describeMessages(kept);
@@ -322,7 +325,7 @@ async function waitForWords(id, given) {
         if (await holdForHooks()) continue;
         const msgs = await drain(hookCfg(cfg), id, deps);
         // Being taken off a conference call is no reason to wake the session.
-        const wake = (msgs || []).filter((m) => !isLeftMessage(m));
+        const wake = (msgs || []).filter(wakes);
         if (wake.length) {
           wokenBusy(wake);
           return describeMessages(wake);

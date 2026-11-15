@@ -31,6 +31,11 @@ const turns = require("../lib/turns.js");
 const { lastAssistantText } = require("../lib/progress.js");
 const { runningVersion } = require("./claude-version.js");
 const { isLiveSpeech } = require("../lib/inbox-format.js");
+const { hasLiveCall } = require("../lib/live-call.js");
+const { pollLiveCall } = require("../lib/call-nudge.js");
+
+const NOTHING = { live: "", quiet: "" };
+const joinText = (...parts) => parts.filter(Boolean).join("\n\n");
 
 function markLocal(id, state, now) {
   const rec = readSession(id);
@@ -91,6 +96,23 @@ async function callText(input, id, deps) {
   };
 }
 
+/**
+ * What the user said on this session's live call while it worked (lib/call-nudge.js), as
+ * { live, quiet }. No live call: one existsSync, no config read, no network.
+ */
+async function liveCallText(input, id, deps) {
+  if (!hasLiveCall(id)) return NOTHING;
+  try {
+    const cfg = loadConfig();
+    if (!isConfigured(cfg)) return NOTHING;
+    const pollDeps = { api: deps.api, now: deps.now, cfg: hookCfg(cfg), phoneDown, markPhoneDown, logError };
+    return (await pollLiveCall(input, id, pollDeps)) || NOTHING;
+  } catch (err) {
+    logError("inbox live call", err);
+    return NOTHING;
+  }
+}
+
 function stopOutput(text, cfg = {}, version = runningVersion()) {
   if (!text) return null;
   const mode = cfg.stop_delivery || "auto";
@@ -135,9 +157,14 @@ async function inbox(input, deps = { api, now: Date.now() }) {
   const event = input.hook_event_name || "PostToolUse";
   const guidance = event === "UserPromptSubmit" ? catchUpGuidance(id) : "";
   trackTurn(event, id, input, deps.now);
-  const said = await callText(input, id, deps);
+  const got = await callText(input, id, deps);
+  // After the inbox drain: words the phone already handed to the inbox are not in the call queue.
+  const heard = await liveCallText(input, id, deps);
+  const said = { text: joinText(got.text, heard.live, heard.quiet), live: joinText(got.live, heard.live), quiet: joinText(got.quiet, heard.quiet) };
   if (event === "Stop") {
-    if (said.text) return stopOutput(said.text, loadConfig());
+    if (heard.live) markLocal(id, "busy", deps.now);
+    const words = joinText(got.text, heard.live);
+    if (words) return stopOutput(words, loadConfig());
     const call = callNudge(id, input, deps.now);
     return stopOutput(call, loadConfig());
   }

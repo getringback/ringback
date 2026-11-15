@@ -40,7 +40,8 @@ const CONTEXT =
   "Do not call for routine progress (use notify_user or show_on_phone for that). On the call, say " +
   "who you are (project) and what you need in one or two short plain sentences, then listen. " +
   "When they ask for a walkthrough, plan or summary, say all of it in one call_say, not piece by piece. " +
-  "On a Ringback conference call, pass your participant_id to call_say and call_listen. " +
+  "On a Ringback conference call, pass your participant_id to call_say and call_listen, and speak only when a line is for you (it names you, or you hold something the call needs); " +
+  "if it names another participant or is not for you, say nothing and call_listen again; never answer for another session or say you are standing by. " +
   "If another of their sessions clearly holds what a call needs, look with list_sessions and ask for it with conference_invite; they decide on the phone. " +
   "Speech recognition on calls mishears short phrases: when what they said might mean hang up, cancel or stop but is not " +
   "clear (\"cut the card\", \"don't cut the call\"), ask them to confirm before you act on it. " +
@@ -55,7 +56,7 @@ const CONTEXT =
 
 // Bump when CONTEXT changes: sessions that started with an older text get the new one once, on
 // their next prompt (hooks/inbox.js), without a restart.
-const GUIDANCE_VERSION = "2026-11-12.1";
+const GUIDANCE_VERSION = "2026-11-15.1";
 
 /** A vast.ai machine never uses Ringback: say so in hooks.log once, add nothing to the session. */
 function noteBlockedOnce(why) {

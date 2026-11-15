@@ -12,8 +12,9 @@ const { allTools, allHandlers, noConfigTools } = require("./lib/tools/index.js")
 const desktopChat = require("./lib/desktop-chat.js");
 const { api } = require("./lib/client.js");
 const { HANGUP_HINT } = require("./lib/hangup-rule.js");
+const { SPEAK_RULE, NOT_FOR_YOU } = require("./lib/conference.js");
 
-const SERVER = { name: "ringback", version: "0.7.43" };
+const SERVER = { name: "ringback", version: "0.7.44" };
 const SUPPORTED = ["2025-06-18", "2025-03-26", "2024-11-05"];
 
 const TOOLS = allTools();
@@ -70,11 +71,31 @@ const GUEST_NOTE =
 // Phone screen (spec 06 section 5.3): the model judges whether what was said is about the screen.
 const SCREEN_HINT = "The user is sharing their phone screen. If what they said is about it, call view_image with the screen image_id.";
 
+/**
+ * A conference reply (it carries `to`): "keep going with call_say" made a seat answer every line,
+ * even lines the user said to another session by name (live conference 2026-11-15).
+ */
+// A seat in a call_listen loop got "ask again with call_say" every 120 s of quiet and filled it.
+const CONFERENCE_SILENCE = "Nothing was said to you. call_listen again or end your turn; do not speak to fill the quiet.";
+
+function conferenceHint(result) {
+  const to = result.to;
+  const mine = result.participant_id;
+  if (to.length && mine && !to.includes(mine)) return `That line was addressed to another participant. ${NOT_FOR_YOU}`;
+  // Said to this seat alone: a conversation with it, as on a 1:1 call.
+  if (to.length === 1 && to[0] === mine) return HANGUP_HINT;
+  return SPEAK_RULE;
+}
+
 function withHint(result) {
   if (!result || !result.status) return result;
   // Tool modules with their own hints (camera statuses) keep them.
   if (typeof result.next === "string" && result.next) return result;
-  let next = result.interrupted ? `${INTERRUPTED} ${hint(result.status)}` : hint(result.status);
+  const conference = Array.isArray(result.to) || Boolean(result.participant_id);
+  const base = conference && result.status === "ok" && Array.isArray(result.to) ? conferenceHint(result)
+    : conference && result.status === "silence" ? CONFERENCE_SILENCE
+    : hint(result.status);
+  let next = result.interrupted ? `${INTERRUPTED} ${base}` : base;
   if (result.status === "ended" && Array.isArray(result.said) && result.said.length) next = `${SAID_AT_END} ${next}`;
   if (Array.isArray(result.utterances) && result.utterances.some((u) => u && u.kind !== "owner")) next = `${GUEST_NOTE} ${next}`;
   if (result.screen && result.screen.sharing) next = next ? `${next} ${SCREEN_HINT}` : SCREEN_HINT;
