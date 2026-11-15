@@ -459,8 +459,12 @@ async function unreachable(ctx, rec, msgs, reason, opts = {}) {
     sessions.stashMessages(rec.id, keep);
     sessions.setPending(rec.id, true);
   }
-  // Once per session per call: the call-started notice and their first words must not both say it.
-  const key = `${rec.id}:${last.call_id}`;
+  // Once per seat per call: the call-started notice and their first words must not both say it.
+  // A new invite is a new seat (participant id): it must hear it again, or the phone keeps that
+  // seat waiting with "has not answered yet" (live call 2026-11-15, second agy invite).
+  // The newest seat: words kept from an earlier seat are handed over again with the new ones.
+  const seat = (msgs.filter((m) => m.conference && m.conference.participant_id).pop() || {}).conference;
+  const key = `${rec.id}:${last.call_id}:${seat ? seat.participant_id : ""}`;
   if (!ctx.unreachableSaid) ctx.unreachableSaid = new Set();
   if (ctx.unreachableSaid.has(key)) return "unreachable";
   rememberOnce(ctx.unreachableSaid, key);
@@ -634,6 +638,7 @@ async function runStarts(ctx, list) {
       home: os.homedir(),
       hostname: os.hostname(),
       handledStarts: ctx.handledStarts,
+      startWatch: ctx.startWatch,
       command: claudeCommand(ctx.cfg, ctx.env),
       spawnDetached: ctx.spawnDetached,
       log,
@@ -657,6 +662,7 @@ async function step(ctx) {
     if (!lock.ownsLock(ctx.pid)) return false;
     mergeMessages(ctx, res);
     await runStarts(ctx, res.starts);
+    await starts.watchStarted({ cfg, api: ctx.api, startWatch: ctx.startWatch, log });
     ctx.backoffMs = 0;
     ctx.failures = 0;
   } catch (err) {
@@ -740,6 +746,7 @@ function newContext(overrides = {}) {
     runs: new Set(),
     processName: cachedNames(),
     handledStarts: new Set(),
+    startWatch: new Map(),
     handledAvatars: new Set(),
     backoffMs: 0,
     service: false,

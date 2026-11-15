@@ -35,7 +35,7 @@ if (require.main === module) {
 //   Stop: what they said -> {decision:"continue", reason}, else heartbeat idle. agy has no session
 //   end hook: the helper drops a session 24 h after its last hook.
 // Visible wake (lib/visible-wake.js): Codex records the process that runs the session (owner_pid),
-// so the helper can `codex queue` a call into that window; agy, with config agy_visible_wake,
+// so the helper can `codex queue` a call into that window; agy (unless config agy_visible_wake is false)
 // keeps its Stop hook waiting while idle and continues the session when they call.
 
 const fs = require("fs");
@@ -177,11 +177,34 @@ function recordOwner(input, info) {
   }
 }
 
+/**
+ * Codex's own internal thread, never a session of theirs: its memory writer runs threads in
+ * CODEX_HOME (~/.codex/memories) under the same window's process; one showed on the phone as an
+ * extra "Codex" row (live call 2026-11-15). Not agy: an agy window in a folder it does not trust
+ * yet reports ~/.gemini/config as its workspace, and that IS their session.
+ */
+function internalThread(input, env = process.env, home = require("os").homedir()) {
+  const cwd = String(input.cwd || "");
+  if (!cwd) return false;
+  const norm = (p) => path.resolve(p).split(path.sep).join("/").replace(/\\/g, "/").toLowerCase().replace(/\/+$/, "");
+  const inside = (dir) => {
+    const c = norm(cwd), d = norm(dir);
+    return c === d || c.startsWith(`${d}/`);
+  };
+  if (input.client === "codex") return inside(env.CODEX_HOME || path.join(home, ".codex"));
+  return false;
+}
+
 const codexContext = (event, text) => ({ hookSpecificOutput: { hookEventName: event, additionalContext: text } });
 
 async function codex(mode, input, cfg, deps) {
   const event = input.hook_event_name;
-  if (mode === "context") return event === "SessionStart" ? codexContext("SessionStart", CONTEXT) : null;
+  if (mode === "context") {
+    if (event !== "SessionStart") return null;
+    // This hook runs, so Codex trusts our hooks as they are now (lib/codex-trust.js).
+    require("../lib/codex-trust.js").recordTrusted({ env: deps.env });
+    return codexContext("SessionStart", CONTEXT);
+  }
   if (mode === "beat") {
     // Stop's final state goes out from the inbox hook, after it knows whether the turn goes on.
     if (event !== "Stop") await beat(cfg, input, "busy", deps);
@@ -237,16 +260,28 @@ async function agy(input, cfg, deps) {
 }
 
 /**
- * agy visible wake (opt-in, config agy_visible_wake): this Stop hook becomes the session's waiter
+ * agy visible wake (on unless config agy_visible_wake is false, 0.7.42): this Stop hook becomes the session's waiter
  * (the helper leaves a session with a live waiter alone) and stays until they say something to it
  * on a call; then the session continues in its own window with their words. {} when off, headless,
  * another waiter holds the session, or the wait ran out.
  */
+/** True unless another live agy session of the same process registered before session `id`. */
+function firstOfOwner(id, owner) {
+  if (!(Number(owner) > 0)) return true;
+  const me = sessions.readSession(id);
+  const mine = Number(me && me.registered_at) || Infinity;
+  return !sessions.listSessions().some((r) => r && !r.ended && r.id !== id && r.client === "agy" && Number(r.owner_pid) === Number(owner) && (Number(r.registered_at) || 0) < mine);
+}
+
 async function agyHold(cfg, input, deps) {
   if (!wake.agyWakeOn(cfg)) return {};
   const id = input.session_id;
   // A headless run never gets here (clientHook stops it first); this guards direct callers.
   if (deps.info && deps.info.headless) return {};
+  // One agy process runs several conversations side by side (its subagents registered three at a
+  // time under one pid, state of 2026-11-12): only the first live one of that process waits, so a
+  // subagent's Stop hook never holds its parent's run.
+  if (!firstOfOwner(id, deps.info && deps.info.owner)) return {};
   const w = deps.waiter || waiter;
   // Owner 0: an agy started from inside a Claude Code session inherits its CLAUDE_PID; not its owner.
   if (!w.claimSlot(id, process.pid, Date.now(), 0)) return {};
@@ -270,7 +305,7 @@ async function clientHook(client, mode, raw, deps = defaultDeps()) {
   const empty = client === "agy" ? {} : null;
   if (!isConfigured(cfg)) return empty;
   const input = normalize(client, raw, client === "agy" ? mode : "");
-  if (!input) return empty;
+  if (!input || internalThread(input, deps.env || process.env, deps.home)) return empty;
   // agy -p / acp, codex exec / review and the helper's own runs never show on the phone.
   const info = deps.info || runInfo(input, deps);
   if (info.headless) return empty;
@@ -289,4 +324,4 @@ if (require.main === module) {
   runHook(`client-hook ${client} ${mode}`, (raw) => clientHook(client, mode, raw));
 }
 
-module.exports = { clientHook, normalize, recordOwner, runInfo, agyHold };
+module.exports = { clientHook, normalize, recordOwner, runInfo, agyHold, internalThread, firstOfOwner };

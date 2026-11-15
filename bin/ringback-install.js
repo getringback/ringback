@@ -14,6 +14,7 @@ const inst = require("../lib/install.js");
 const approve = require("../lib/auto-approve.js");
 const { loadConfig, isConfigured } = require("../lib/config.js");
 const copies = require("../lib/plugin-copy.js");
+const codexTrust = require("../lib/codex-trust.js");
 
 /** The stable copy, waiting up to 15 s while a starting session holds the install lock. */
 function stableCopy(root) {
@@ -66,15 +67,17 @@ function codex(ctx) {
   const entry = inst.mcpEntry(ctx.root, "codex");
   const toml = path.join(home, "config.toml");
   const hooks = path.join(home, "hooks.json");
+  const lines = [
+    apply(ctx, toml, (t) => inst.mergeCodexToml(t, entry), "MCP server"),
+    apply(ctx, hooks, (t) => inst.mergeCodexHooks(t, ctx.root, inst.shortPath, hooks), "hooks"),
+    // FOLLOWUPS item 49: view_image never asks (they sent the picture).
+    apply(ctx, toml, approve.addCodexApproval, "view_image approval"),
+  ];
+  // Whether Codex already runs the hooks as written now (a Ringback hook ran since they changed).
+  const trust = codexTrust.trustState({ text: inst.mergeCodexHooks(read(hooks), ctx.root, inst.shortPath, hooks).text });
   return {
-    lines: [
-      apply(ctx, toml, (t) => inst.mergeCodexToml(t, entry), "MCP server"),
-      apply(ctx, hooks, (t) => inst.mergeCodexHooks(t, ctx.root, inst.shortPath, hooks), "hooks"),
-      // FOLLOWUPS item 49: view_image never asks (they sent the picture).
-      apply(ctx, toml, approve.addCodexApproval, "view_image approval"),
-    ],
+    lines: [...lines, `  hooks trust: ${trust.trusted ? codexTrust.TRUSTED : codexTrust.TRUST_NEEDED}`],
     notes: [
-      "Codex runs new hooks only after you trust them: in Codex type /hooks and trust the Ringback hooks (once, and again after an update changes them).",
       "Codex sessions then show on the phone; calling one that is busy reaches it at its next step, an idle one whose window is open is woken there with `codex queue`, and a closed one cannot be called (the phone says so).",
     ],
   };
@@ -114,7 +117,7 @@ function agy(ctx) {
     lines,
     failed,
     notes: [
-      "New agy sessions load it. agy sessions show on the phone; a busy one hears you at its next model step, an idle one is woken in its own window only with \"agy_visible_wake\": true in ~/.ringback/config.json (else the phone says it could not be reached on screen).",
+      "New agy sessions load it. agy sessions show on the phone; a busy one hears you at its next model step, an idle one waits in its Stop hook and answers in its own window (turn off with \"agy_visible_wake\": false); one stopped with Esc answers through one turn of its own conversation (turn off with \"agy_resume_wake\": false).",
       "agy has no session-end hook: a closed agy session leaves the phone's list 24 hours after its last activity.",
     ],
   };
