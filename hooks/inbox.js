@@ -29,7 +29,7 @@ const { runHook, logError, isSubagentHook } = require("./common.js");
 const { CONTEXT, GUIDANCE_VERSION } = require("./session-start.js");
 const turns = require("../lib/turns.js");
 const { lastAssistantText } = require("../lib/progress.js");
-const { runningVersion, quietStop } = require("./claude-version.js");
+const { runningVersion } = require("./claude-version.js");
 const { isLiveSpeech } = require("../lib/inbox-format.js");
 
 function markLocal(id, state, now) {
@@ -94,7 +94,10 @@ async function callText(input, id, deps) {
 function stopOutput(text, cfg = {}, version = runningVersion()) {
   if (!text) return null;
   const mode = cfg.stop_delivery || "auto";
-  return mode === "context" || (mode === "auto" && quietStop(version))
+  // Context on Stop is added but does not start a new turn, so the session never called when it was
+  // done (seen live on Claude Code 2.1.325, 2026-11-15). Block is the only form that makes it act.
+  void version;
+  return mode === "context"
     ? { hookSpecificOutput: { hookEventName: "Stop", additionalContext: text } }
     : { decision: "block", reason: text };
 }
